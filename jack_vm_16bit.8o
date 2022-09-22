@@ -1,0 +1,1103 @@
+# Chip8 is a virtual machine designed in 1977 for programming video games.
+# Octo is a high level assembler, disassembler and simulator for Chip8.
+# Click 'Run' and then press ASWD to move the sprite around the screen.
+# Click the Octo logo for source, documentation and examples.
+
+:macro indirect LABEL {
+	0xF0 0x00 : LABEL 0x00 0x00 # i := long NNNN
+	}
+
+
+:alias ZERO v0
+:alias tmp v7
+:alias LOCALS v8 # pointer into stack
+:alias ARGS v9 # pointer into stack
+:alias SP vC
+:alias index vE
+
+:alias op1 v2
+:alias op2 v3
+:alias op3 v4
+
+# 2 bit | 3 bit | 3 bit
+
+
+
+
+:macro noop { 0x00 }
+:macro op CODE {
+  # 5 bit opcode
+	:byte { CODE << 2 }
+}
+
+:org 0x3000
+: vm_program
+noop
+op 0x10
+0x00
+0x01
+op 0x10
+0x00
+0x02
+op 0x01
+
+
+# statics and stack are fixed in RAM
+
+:org 0x1900
+: statics
+
+:org 0x2000
+: stack
+
+:org 0x0B00
+:const ptr_count 6
+:const ptr_size 6
+: access_stack
+indirect stack_ptr
+;
+: access_this
+indirect this_ptr
+;
+: access_that
+indirect that_ptr
+;
+: access_args
+indirect args_ptr
+;
+: access_locals
+indirect locals_ptr
+;
+: access_statics
+i := long statics
+;
+
+:monitor stack_ptr "%2i"
+:monitor args_ptr "%2i"
+:monitor locals_ptr "%2i"
+:monitor this_ptr "%2i"
+:monitor that_ptr "%2i"
+:monitor statics "%2i %2i %2i %2i %2i %2i %2i %2i %2i %2i %2i %2i %2i"
+:monitor stack "%2i %2i %2i %2i %2i %2i %2i %2i %2i %2i %2i %2i %2i"
+
+:macro push_constant CONST {
+  i := long stack
+	i += SP
+	vF := CONST
+	save vF - vF
+	SP += 1
+}
+
+
+:macro jump-if LABEL {
+	#:breakpoint x
+  i := long stack
+	SP -= 1
+	i += SP
+	load tmp - tmp
+	if tmp != 0 then jump LABEL
+}
+
+:macro load_addr PTR {
+	:calc hi { ( PTR >> 8 ) & 0xFF }
+	:calc lo { PTR & 0xFF }
+	vE := hi
+	vF := lo
+}
+
+:macro save_ptr {
+  save vE - vF
+}
+
+
+:macro copy_ptr SRC DEST {
+	i := long SRC
+	load vD - vE
+	i := long DEST
+	save vD - vE
+}
+
+:macro get_static POS {
+	index := POS
+	_get_static
+}
+
+:macro pop_static POS {
+	index := POS
+	_pop_static
+}
+
+:macro get_local POS {
+	index := POS
+	_get_local
+}
+
+:macro pop_local POS {
+	index := POS
+	_pop_local
+}
+
+:macro push_local IDX {
+	index := IDX
+	_push_local
+}
+
+:macro push_static IDX {
+	index := IDX
+	_push_static
+}
+
+
+
+:macro push_wconstant CONST {
+	:calc hi { ( CONST >> 8 ) & 0xFF }
+	:calc lo { CONST & 0xFF }
+	# save value to stack
+	vC := hi
+	vD := lo
+	access_stack
+	save vC - vD
+
+	stack_inc
+}
+
+
+
+
+
+
+:macro assert_equal REG VALUE {
+	if REG != VALUE begin
+		test-fail
+		#:breakpoint "assert_equal failed"
+		return
+	end
+}
+
+:org 0x200
+: main
+vF := 1
+#:breakpoint x
+vF := 1
+vF := 1
+:call 0xfff
+jump start
+
+: data 0x00 0x80
+: failed 0x80 0x80
+
+:const MAX_TESTS 30
+:calc next_test { HERE }
+: run_tests
+: tests
+
+:org { tests + MAX_TESTS * 2 }
+return
+
+:monitor tests 12
+
+: start
+	v0 := 0
+
+	plane 3
+	SP := 0
+	ZERO := 0
+	i := long stack_ptr
+	load_addr 0x2000
+	save_ptr
+	copy_ptr stack_ptr args_ptr
+
+	#push_wconstant 1
+	#push_wconstant 2
+	#addw
+	#pop_static 0
+#	add
+
+	#test_a_plus_b
+	#test_a_equal_b
+	#:breakpoint x
+
+
+	:call run_tests
+
+	loop
+	  vF += 1
+	again
+
+
+: test-fail
+	v0 += 1
+	i := failed
+	sprite v0 v0 1
+;
+
+: success
+	v0 += 1
+	i := data
+	sprite v0 v0 1
+;
+
+:macro test NAME {
+	:calc curr_test { HERE }
+	:org next_test
+	:call curr_test
+	:calc next_test { HERE }
+	:org curr_test
+}
+
+:macro pop_into_reg REG1 {
+	:alias REG2 { REG1 + 1 }
+	:calc load_ref { HERE }
+	stack_dec
+	access_stack
+	load REG1 - REG2
+}
+
+:macro assert_equal_16 REGPAIR VALUE {
+	:alias REG2 { REGPAIR + 1 }
+
+  :assert "vF not an allowed pair" { REGPAIR != vF }
+	:assert "vE not an allowed pair" { REGPAIR != vE }
+	:calc hi { ( VALUE & 0xFF00 ) >> 8 }
+	:calc low { VALUE & 0xFF }
+	if REGPAIR != hi begin
+		test-fail
+		return
+	end
+	if REG2 != low begin
+		test-fail
+		return
+	end
+}
+
+
+test "simple add"
+	push_wconstant 1
+	push_wconstant 2
+	addw
+	pop_into_reg vC
+	assert_equal vC 0
+	assert_equal vD 3
+	success
+;
+
+test "add with carry"
+	push_wconstant 255
+	push_wconstant 2
+	addw
+	pop_into_reg vC
+	assert_equal vC 1
+	assert_equal vD 1
+	success
+;
+
+test "add two words"
+	push_wconstant 257
+	push_wconstant 258
+	addw
+	pop_into_reg vC
+	assert_equal vC 2
+	assert_equal vD 3
+	assert_equal_16 vC 515
+	success
+;
+
+# sub
+
+test "basic subtraction"
+	push_wconstant 123
+	push_wconstant 23
+	subw
+	pop_into_reg vC
+	assert_equal_16 vC 100
+
+	# carry
+	push_wconstant 0x100
+	push_wconstant 1
+	subw
+	pop_into_reg vC
+	assert_equal_16 vC 0xFF
+
+	# rollover to 0xffff
+	push_wconstant 0x00
+	push_wconstant 1
+	subw
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFF
+
+	success
+;
+
+test "AND two words"
+	push_wconstant 0x100
+	push_wconstant 10
+	addw
+	push_wconstant 0xFF
+	andw
+	pop_into_reg vC
+	assert_equal_16 vC 10
+	success
+;
+
+test "AND two words"
+	push_wconstant 0xFFFF
+	push_wconstant 0x1234
+	andw
+	pop_into_reg vC
+	assert_equal_16 vC 0x1234
+	success
+;
+
+test "basic OR"
+	push_wconstant 0b0101010101010101
+	push_wconstant 0b1010101010101010
+	orw
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFF
+
+	push_wconstant 0xFF10
+	push_wconstant 0x002F
+	orw
+	pop_into_reg vC
+	assert_equal_16 vC 0xFF3F
+	success
+;
+
+:const TRUE 0x0001
+:const FALSE 0x0000
+
+test "negate"
+	push_wconstant 1
+	negw
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFF
+
+	push_wconstant 2
+	negw
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFE
+
+	success
+;
+
+test "not"
+	push_wconstant 0xFF
+	#:breakpoint beforenot
+	notw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	push_wconstant 1
+	notw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	push_wconstant 0x0F00
+	notw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	push_wconstant 0
+	notw
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	success
+;
+
+test "equality"
+	push_wconstant 123
+	push_wconstant 123
+	equalw
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	push_wconstant 123
+	push_wconstant 99
+	equalw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	push_wconstant 56
+	push_wconstant 5000
+	equalw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+	success
+;
+
+test "less than"
+	push_wconstant 2000
+	push_wconstant 2000
+	ltw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	push_wconstant 1999
+	push_wconstant 2000
+	ltw
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	push_wconstant 2002
+	push_wconstant 2000
+	ltw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	success
+;
+
+test "greater than"
+	push_wconstant 2000
+	push_wconstant 123
+	gtw
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	push_wconstant 0x0200
+	push_wconstant 0x0100
+	gtw
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	push_wconstant 0x0102
+	push_wconstant 0x0101
+	gtw
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	push_wconstant 2000
+	push_wconstant 2000
+	gtw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	push_wconstant 56
+	push_wconstant 5000
+	gtw
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+	success
+;
+
+# push static
+
+: static_data
+0x00 0x03 0x00 0x02
+
+:macro memcpy src dest count {
+	index := count
+	:calc memcpy_return { HERE }
+	index -= 1
+	i := long src
+	i += index
+	load vF - vF
+	i := long dest
+	i += index
+	save vF - vF
+	if index != 0 then jump memcpy_return
+}
+
+test "push static"
+	memcpy static_data statics 4
+	push_static 0
+	push_static 1
+	addw
+	pop_into_reg vC
+	assert_equal_16 vC 5
+	success
+;
+
+# pop static
+
+test "pop static"
+	push_wconstant 55
+	pop_static 0
+	push_wconstant 123
+	pop_static 3
+
+	get_static 0
+	assert_equal_16 vC 55
+	get_static 3
+	assert_equal_16 vC 123
+
+	success
+;
+
+# push local
+test "push local"
+	i := locals_ptr
+	vC := 0x90
+	vD := 0x00
+	save vC - vD
+
+	memcpy static_data locals_ptr 4
+	push_local 0
+	push_local 1
+	addw
+	pop_into_reg vC
+	assert_equal_16 vC 5
+
+	success
+;
+
+:monitor 0x9000 "%2i %2i %2i %2i %2i %2i %2i "
+:monitor vC "%2i"
+test "pop local"
+	# somewhere out of the way
+	i := locals_ptr
+	vC := 0x90
+	vD := 0x00
+	save vC - vD
+
+	push_wconstant 99
+	pop_local 0
+	push_wconstant 3456
+	pop_local 3
+
+	get_local 0
+	#:breakpoint xx
+	assert_equal_16 vC 99
+	get_local 3
+	#:breakpoint xy
+	assert_equal_16 vC 3456
+
+	success
+;
+
+
+
+# bookends
+:calc was { HERE }
+:org next_test
+return
+:org was
+
+: _get_static
+	access_statics
+	index += index # double
+	i += index
+	load vC - vD
+;
+
+: _get_local
+	access_locals
+	index += index # double
+	i += index
+	load vC - vD
+;
+
+	#:breakpoint x
+	#push_constant 3
+	#equal
+#	push_constant 0
+#	:breakpoint push_0
+#	not
+#push_constant 49
+#push_constant 44
+#neg
+#:breakpoint t
+#add
+
+#	push_constant 9
+#	push_constant 4
+#	Math_add
+#	push_constant 13
+	#:breakpoint y
+#	equal
+	#:breakpoint x
+#	jump-if true
+#	jump done
+#	: true
+#		push_constant 59
+#	: done
+;
+
+# PUSH OPCODES
+
+# [x] push constant
+# [x] push static
+# [x] push local
+# [ ] push this
+# [ ] push that
+# [ ] push arg
+
+
+: _push_local
+	index += index # words, not bytes
+	access_locals
+	i += index
+	load vC - vD
+	access_stack
+	save vC - vD
+	stack_inc
+return
+
+: _push_static
+	index += index # words, not bytes
+	access_statics
+	i += index
+	load vC - vD
+	access_stack
+	save vC - vD
+	stack_inc
+return
+
+
+# POP OPCODES
+
+# [x] pop static
+# [x] pop local
+# [ ] pop this
+# [ ] pop that
+# [ ] pop arg?????
+
+: _pop_static
+	stack_dec
+	access_stack
+	load vC - vD
+	access_statics
+	index += index
+	i += index
+	save vC - vD
+;
+
+: _pop_local
+	stack_dec
+	access_stack
+	load vC - vD
+	access_locals
+	index += index
+	i += index
+	save vC - vD
+;
+
+
+# MATH OPCODES
+
+# [x] add
+# [x] sub
+# [x] neg
+# [x] equal
+# [x] gt
+# [x] lt
+# [x] and (bool/logic)
+# [x] or (bool/logic)
+# [x] xor (logic)
+# [x] not (bool)
+
+: gtw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	# check equality
+	if v2 > v4 then jump yes_greater
+	if v2 == v4 begin
+		if v3 > v5 then jump yes_greater
+	end
+	# push back to stack
+	: no_greater
+		vC := 0
+		vD := 0
+		jump done_greater
+	: yes_greater
+		vC := 0
+		vD := 1
+	: done_greater
+		save vC - vD
+		stack_inc
+return
+
+: ltw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	# check equality
+	if v2 < v4 then jump yes_less
+	if v2 == v4 begin
+		if v3 < v5 then jump yes_less
+	end
+	# push back to stack
+	: no_less
+		vC := 0
+		vD := 0
+		jump done_less
+	: yes_less
+		vC := 0
+		vD := 1
+	: done_less
+		save vC - vD
+		stack_inc
+return
+
+
+: equalw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	# check equality
+	if v2 != v4 then jump no_equal
+	if v3 != v5 then jump no_equal
+	# push back to stack
+	: yes_equal
+		vC := 0
+		vD := 1
+		jump done_equal
+	: no_equal
+		vC := 0
+		vD := 0
+	: done_equal
+		save vC - vD
+		stack_inc
+return
+
+: xorw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	v2 ^= v4
+	v3 ^= v5
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+: orw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	v2 |= v4
+	v3 |= v5
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+: andw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	v2 &= v4
+	v3 &= v5
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+: notw
+	stack_dec
+	access_stack
+	load v2 - v3
+	if v2 == 0 begin
+		if v3 == 0 begin
+			jump not_was_false
+		end
+	end
+	: not_was_true
+		v2 := 0
+		v3 := 0
+		jump not_done
+	: not_was_false
+		v2 := 0
+		v3 := 1
+	: not_done
+	save v2 - v3
+	stack_inc
+return
+
+: negw
+	stack_dec
+	access_stack
+	load v2 - v3
+	vC := v2
+	vD := v3
+	# once
+	v3 -= v3
+	if vF == 0 then v2 -= 1
+	v2 -= v2
+	# again
+	v3 -= vD
+	if vF == 0 then v2 -= 1
+	v2 -= vC
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+
+: addw
+	stack_dec2
+	access_stack
+
+	load v2 - v5
+	v3 += v5
+	if vF == 1 then v2 += 1
+	v2 += v4
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+
+
+: subw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	#:breakpoint subw
+	v3 -= v5
+	if vF == 0 then v2 -= 1
+	v2 -= v4
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+
+# STACK ACCESS
+
+
+: stack_inc
+	# increment update stack ptr
+	i := long stack_ptr
+	load vC - vD
+	vF := 2
+	vD += vF
+	if vF == 1 then vC += 1
+	save vC - vD
+;
+
+: stack_dec
+	# rewind stack
+	i := long stack_ptr
+	load vC - vD
+	vF := 2
+	vD -= vF
+	if vF == 0 then vC -= 1
+	save vC - vD
+;
+
+# to speed up operations that pull two things off the
+# stack and then operator on them
+: stack_dec2
+	# rewind stack
+	i := long stack_ptr
+	load vC - vD
+	vF := 4
+	vD -= vF
+	if vF == 0 then vC -= 1
+	save vC - vD
+;
+
+
+
+
+:macro push_arg X {
+  vF := X
+  _push_arg
+}
+
+:alias arg_num vF
+: _push_arg
+  i := long stack
+	i += ARGS
+	i += arg_num
+	load vF - vF
+	i := long stack
+	i += SP
+	save vF - vF
+	SP += 1
+return
+
+: do_return
+  i := long stack
+	SP -= 1
+	i += SP
+	load tmp - tmp
+	# rewind stack
+	SP := ARGS
+	i := long stack
+	i += SP
+	save tmp - tmp
+	SP += 1
+;
+
+# encoding
+
+: noop
+return
+
+: op_push_constant
+return
+
+: op_push_static
+return
+
+: op_push_local
+return
+
+: op_push_this
+return
+
+: op_push_that
+return
+
+: op_push_arg
+return
+
+: op_return
+return
+
+: op_pop_static
+return
+
+: op_pop_local
+return
+
+: op_pop_this
+return
+
+: op_pop_that
+return
+
+: op_pop_arg
+return
+
+: op_clear
+  clear
+return
+
+: op_call
+return
+
+: op_function
+return
+
+: op_jump
+return
+
+: op_jump_if
+return
+
+
+# 2 bit | 6 bit
+
+# 0x00 NOP
+
+# 0 0 0x1 add
+# 0 0 0x2 sub
+# 0 0 0x3 neg
+# 0 0 0x4 equal
+# 0 0 0x5 gt
+# 0 0 0x6 lt
+# 0 0 0x7 and (bool/logic)
+# 0 0 0x8 or (bool/logic)
+# 0 0 0x9 xor (logic)
+# 0 0 0xA not (bool)
+
+:calc was { HERE }
+:org 0xFF0
+: highwater
+:byte { ( was >> 8 ) & 0xff }
+:byte { was & 0xff }
+:monitor highwater "%2i"
+
+
+
+
+# 1 1 [index] pop static     (2 byte)
+# 1 2 [index] pop local      (2 byte)
+# 1 3 [index] pop this       (2 byte)
+# 1 4 [index] pop that       (2 byte)
+# 1 5 [index] pop arg?????   (2 byte)
+
+# 2 1 push constant [word]   (3 bytes)
+# 2 2 push constant [3 bit]  (1 byte)
+# 2 3 [index] push static    (2 byte)
+# 2 4 [index] push local     (2 byte)
+# 2 5 [index] push this      (2 byte)
+# 2 6 [index] push that      (2 byte)
+# 2 7 [index] push arg       (2 byte)
+
+# 3 1 jump [addr][addr]      (3 bytes)
+# 3 2 jump-if [addr][addr]   (3 bytes)
+# 3 3 call [addr][addr] [args] (4 bytes)
+# 3 4 function [locals]      (2 bytes)
+# 3 5 return                 (1 byte)
+
+
+
+: op_jump_table
+:org 0xFFF
+
+# 1 byte instructions
+jump noop         # 0x00
+jump addw         # 0x01
+jump subw         # 0x02
+jump negw         # 0x03
+jump equalw       # 0x04
+jump gtw          # 0x05
+jump ltw          # 0x06
+jump andw         # 0x07
+jump orw          # 0x08
+jump xorw         # 0x09
+jump notw         # 0x0A
+
+jump noop         # 0x0B
+jump noop         # 0x0C
+jump noop         # 0x0D
+jump op_clear     # 0x0E
+jump op_return    # 0x0F
+
+# 2 byte instructions
+jump op_push_static   # 0x11
+jump op_push_local    # 0x12
+jump op_push_this     # 0x13
+jump op_push_that     # 0x14
+jump op_push_arg      # 0x15
+
+jump noop             # 0x16
+jump noop             # 0x17
+jump noop             # 0x18
+jump op_pop_static    # 0x19
+jump op_pop_local     # 0x1A
+jump op_pop_this      # 0x1B
+jump op_pop_that      # 0x1C
+jump op_pop_arg       # 0x1D
+jump noop             # 0x1E
+jump op_function      # 0x1F
+
+# 0x20 - 3 bytes
+
+jump op_push_constant # 0x20 - 3 bytes
+jump op_jump          # 0x21 - 3 bytes
+jump op_jump_if       # 0x22 - 3 bytes
+jump op_call          # 0x23 - 4 bytes
+
+
+# 5 bits
+# first values are 8, 16, 24
+# SHR, SHR, jump table
+
+
+# read 3 bytes
+# get first 2 bit (math, pop. push, flow) 0,  64, 128, 192  (JMP + v0)
+
+# math
+# get last 6 bits (AND)
+# shift left, jump table
+
+# pop
+# get 3 bit
+
+
+
+
+
+#:monitor 0x1200 64
+#:monitor 0x0200 64
+
+#:monitor 0xf00 80
+#:org 0xf00
+

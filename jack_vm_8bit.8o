@@ -1,0 +1,224 @@
+# Chip8 is a virtual machine designed in 1977 for programming video games.
+# Octo is a high level assembler, disassembler and simulator for Chip8.
+# Click 'Run' and then press ASWD to move the sprite around the screen.
+# Click the Octo logo for source, documentation and examples.
+
+:macro indirect LABEL {
+	0xF0 0x00 : LABEL 0x00 0x00 # i := long NNNN
+	}
+
+
+:alias ZERO v0
+:alias tmp v4
+:alias LOCALS v8 # pointer into stack
+:alias ARGS v9 # pointer into stack
+:alias SP vC
+
+:macro push_constant CONST {
+  i := long stack
+	i += SP
+	vF := CONST
+	save vF - vF
+	SP += 1
+}
+
+:macro jump-if LABEL {
+	#:breakpoint x
+  i := long stack
+	SP -= 1
+	i += SP
+	load tmp - tmp
+	if tmp != 0 then jump LABEL
+}
+
+:org 0x2000
+: stack
+
+:monitor 0x2000 10
+:monitor 0x2000 "%i %i %i %i %i %i %i %i "
+:org 0x200
+: main
+	SP := 0
+	ZERO := 0
+
+	push_constant 1
+	push_constant 2
+	add
+	#:breakpoint x
+	push_constant 3
+	equal
+#	push_constant 0
+#	:breakpoint push_0
+#	not
+push_constant 49
+push_constant 44
+neg
+#:breakpoint t
+add
+
+	push_constant 9
+	push_constant 4
+	Math_add
+	push_constant 13
+	#:breakpoint y
+	equal
+	#:breakpoint x
+	jump-if true
+	jump done
+	: true
+		push_constant 59
+	: done
+
+	loop
+	  vF += 1
+	again
+;
+
+
+
+:macro push_arg X {
+  vF := X
+  _push_arg
+}
+
+:alias arg_num vF
+: _push_arg
+  i := long stack
+	i += ARGS
+	i += arg_num
+	load vF - vF
+	i := long stack
+	i += SP
+	save vF - vF
+	SP += 1
+return
+
+: Math_add
+  ARGS := SP
+	ARGS -= 2
+  push_arg 0
+	push_arg 1
+
+	add
+	#:breakpoint x
+	do_return
+return
+
+
+: do_return
+  i := long stack
+	SP -= 1
+	i += SP
+	load tmp - tmp
+	# rewind stack
+	SP := ARGS
+	i := long stack
+	i += SP
+	save tmp - tmp
+	SP += 1
+;
+
+: neg
+  i := long stack
+	SP -= 1
+	i += SP
+	load vA - vA
+	vB := vA # positive
+	vA -= vB # 0
+	vA -= vB # negative
+	save vA - vA
+	SP += 1
+return
+
+: not
+  i := long stack
+	SP -= 1
+	i += SP
+	load vA - vA
+	vF := 0x01
+	vA ^= vF
+	save vA - vA
+	SP += 1
+return
+
+: lt
+  i := long stack
+	SP -= 2
+	i += SP
+	load vA - vB
+	if vA < vB begin
+	  vF := 1
+	else
+    vF := 0
+	end
+	save vF - vF
+	SP += 1
+	clear_next_i
+return
+
+: gt
+  i := long stack
+	SP -= 2
+	i += SP
+	load vA - vB
+	if vA > vB begin
+	  vF := 1
+	else
+    vF := 0
+	end
+	save vF - vF
+	SP += 1
+	clear_next_i
+return
+
+: equal
+  i := long stack
+	SP -= 2
+	i += SP
+	load vA - vB
+	if vA == vB begin
+	  vF := 1
+	else
+    vF := 0
+	end
+	save vF - vF
+	SP += 1
+	clear_next_i
+return
+
+: clear_next_i
+	# clear the old stack data
+	v3 := 1
+	i += v3
+	save ZERO - ZERO
+return
+
+: add
+  i := long stack
+	SP -= 2
+	i += SP
+	load vA - vB
+	vA += vB
+	save vA - vA
+	SP += 1
+	clear_next_i
+return
+
+: sub
+  i := long stack
+	SP -= 2
+	i += SP
+	load vA - vB
+	vA -= vB
+	save vA - vA
+	SP += 1
+	clear_next_i
+return
+
+
+#:monitor 0x1200 64
+#:monitor 0x0200 64
+
+:monitor 0xf00 80
+:org 0xf00
+
