@@ -8,16 +8,21 @@
 	}
 
 
-:alias ZERO v0
-:alias tmp v7
-:alias LOCALS v8 # pointer into stack
-:alias ARGS v9 # pointer into stack
+#:alias ZERO v0
+
+#:alias LOCALS v8 # pointer into stack
+#:alias ARGS v9 # pointer into stack
 :alias SP vC
 :alias index vE
 
 :alias op1 v2
 :alias op2 v3
 :alias op3 v4
+
+:alias tmp v7
+
+:alias PChi v8
+:alias PClo v9
 
 # 2 bit | 3 bit | 3 bit
 
@@ -29,17 +34,22 @@
   # 5 bit opcode
 	:byte { CODE << 2 }
 }
+:macro o_push_constant CONST {
+	:calc hi { ( CONST >> 8 ) & 0xFF }
+	:calc lo {  CONST & 0xFF }
+	op 0x20
+	:byte { hi }
+	:byte { lo }
+}
+:macro o_add { op 0x01 }
+:macro o_halt { op 0x17 0x00 }
 
 :org 0x3000
 : vm_program
 noop
-op 0x10
-0x00
-0x01
-op 0x10
-0x00
-0x02
-op 0x01
+o_push_constant 1
+o_push_constant 2
+o_add
 
 
 # statics and stack are fixed in RAM
@@ -180,7 +190,7 @@ vF := 1
 #:breakpoint x
 vF := 1
 vF := 1
-:call 0xfff
+#:call 0xfff
 jump start
 
 : data 0x00 0x80
@@ -189,6 +199,7 @@ jump start
 :const MAX_TESTS 30
 :calc next_test { HERE }
 : run_tests
+#:breakpoint tests
 : tests
 
 :org { tests + MAX_TESTS * 2 }
@@ -201,7 +212,7 @@ return
 
 	plane 3
 	SP := 0
-	ZERO := 0
+#	ZERO := 0
 	i := long stack_ptr
 	load_addr 0x2000
 	save_ptr
@@ -217,8 +228,9 @@ return
 	#test_a_equal_b
 	#:breakpoint x
 
-
+	:breakpoint before_run_tests
 	:call run_tests
+	#:breakpoint after_run_tests
 
 	loop
 	  vF += 1
@@ -270,11 +282,62 @@ return
 	end
 }
 
+:macro vm_start {
+	:calc vm_source { HERE }
+	:calc next { HERE + 2 }
+	:org next
+}
+
+:macro inc_pc n {
+	PClo += n
+	PChi += vF # overflow
+}
+: load_pc
+	indirect pc_addr
+;
+: run_vm
+	i := pc_addr
+	save PChi - PClo
+	load_pc
+	load op1 - op3
+	v0 := op1
+	v0 >>= v0
+#	v0 += 1
+	#:breakpoint xs
+	jump0 op_jump_table
+	: op_done_resume_vm
+	inc_pc 1
+	jump run_vm
+return
+
+:monitor 0x29a 10
+
+:macro vm_stop {
+	o_halt
+	:calc was { HERE }
+	# now go back and insert a jump
+	:org vm_source
+	jump was
+	:calc vm_source { vm_source + 2 }
+	:org was
+	# load vm_source into our PC
+	:calc hi { vm_source >> 8 }
+	:calc lo { vm_source & 0xFF }
+	PChi := hi
+	PClo := lo
+	run_vm
+}
 
 test "simple add"
-	push_wconstant 1
-	push_wconstant 2
-	addw
+	vm_start
+		o_push_constant 1
+		o_push_constant 2
+		o_add
+	vm_stop
+
+#	push_wconstant 1
+#	push_wconstant 2
+#	addw
 	pop_into_reg vC
 	assert_equal vC 0
 	assert_equal vD 3
@@ -282,9 +345,15 @@ test "simple add"
 ;
 
 test "add with carry"
-	push_wconstant 255
-	push_wconstant 2
-	addw
+	vm_start
+		o_push_constant 255
+		o_push_constant 2
+		o_add
+	vm_stop
+
+#	push_wconstant 255
+#	push_wconstant 2
+#	addw
 	pop_into_reg vC
 	assert_equal vC 1
 	assert_equal vD 1
@@ -292,9 +361,15 @@ test "add with carry"
 ;
 
 test "add two words"
-	push_wconstant 257
-	push_wconstant 258
-	addw
+	vm_start
+		o_push_constant 257
+		o_push_constant 258
+		o_add
+	vm_stop
+
+	#push_wconstant 257
+	#push_wconstant 258
+	#addw
 	pop_into_reg vC
 	assert_equal vC 2
 	assert_equal vD 3
@@ -531,11 +606,13 @@ test "push local"
 	vC := 0x90
 	vD := 0x00
 	save vC - vD
+	#:breakpoint "set_locals_ptr"
 
 	memcpy static_data locals_ptr 4
-	push_local 0
-	push_local 1
-	addw
+	#:breakpoint "after memcpy"
+	#push_local 0
+	#push_local 1
+	#addw
 	pop_into_reg vC
 	assert_equal_16 vC 5
 
@@ -545,6 +622,8 @@ test "push local"
 :monitor 0x9000 "%2i %2i %2i %2i %2i %2i %2i "
 :monitor vC "%2i"
 test "pop local"
+:breakpoint "hi"
+
 	# somewhere out of the way
 	i := locals_ptr
 	vC := 0x90
@@ -566,11 +645,10 @@ test "pop local"
 	success
 ;
 
-
-
 # bookends
 :calc was { HERE }
 :org next_test
+:breakpoint done
 return
 :org was
 
@@ -901,7 +979,7 @@ return
 :alias arg_num vF
 : _push_arg
   i := long stack
-	i += ARGS
+	i += v0 # ARGS
 	i += arg_num
 	load vF - vF
 	i := long stack
@@ -916,7 +994,7 @@ return
 	i += SP
 	load tmp - tmp
 	# rewind stack
-	SP := ARGS
+	SP := v0 # ARGS
 	i := long stack
 	i += SP
 	save tmp - tmp
@@ -925,10 +1003,21 @@ return
 
 # encoding
 
+:macro op_return {
+  jump op_done_resume_vm
+}
+
 : noop
+op_return
 return
 
 : op_push_constant
+	access_stack
+	save op2 - op3
+
+	stack_inc
+	inc_pc 2 # 2 extra
+op_return
 return
 
 : op_push_static
@@ -944,9 +1033,6 @@ return
 return
 
 : op_push_arg
-return
-
-: op_return
 return
 
 : op_pop_static
@@ -968,6 +1054,18 @@ return
   clear
 return
 
+# flow control
+
+: op_halt
+# purposely all this does is return
+# and since we jumped here this will
+# terminate the VM
+#
+# TODO: perhaps instead a jump to vm_stop might be
+# more appropriate if later we decide we have cleanup
+# we need to do.
+return
+
 : op_call
 return
 
@@ -979,6 +1077,10 @@ return
 
 : op_jump_if
 return
+
+: op_return
+return
+
 
 
 # 2 bit | 6 bit
@@ -1028,11 +1130,16 @@ return
 
 
 
+#: op_jump_table_low_ram
+#:org 0xFFF
+#:byte 0
+
+:org 0xFFE
 : op_jump_table
-:org 0xFFF
 
 # 1 byte instructions
 jump noop         # 0x00
+
 jump addw         # 0x01
 jump subw         # 0x02
 jump negw         # 0x03
@@ -1051,6 +1158,7 @@ jump op_clear     # 0x0E
 jump op_return    # 0x0F
 
 # 2 byte instructions
+jump noop             # 0x10
 jump op_push_static   # 0x11
 jump op_push_local    # 0x12
 jump op_push_this     # 0x13
@@ -1058,7 +1166,7 @@ jump op_push_that     # 0x14
 jump op_push_arg      # 0x15
 
 jump noop             # 0x16
-jump noop             # 0x17
+jump op_halt          # 0x17
 jump noop             # 0x18
 jump op_pop_static    # 0x19
 jump op_pop_local     # 0x1A
