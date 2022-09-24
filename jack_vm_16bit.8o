@@ -600,19 +600,32 @@ test "pop static"
 	success
 ;
 
+:macro memcpy_dir_to_ptr src dest_ptr count {
+	index := count
+	:calc memcpy_return { HERE }
+	index -= 1
+	i := long src
+	i += index
+	load vF - vF
+	# i := long dest_ptr
+	:call { dest_ptr - 2 }
+	i += index
+	save vF - vF
+	if index != 0 then jump memcpy_return
+}
+
+
 # push local
 test "push local"
 	i := locals_ptr
 	vC := 0x90
 	vD := 0x00
 	save vC - vD
-	#:breakpoint "set_locals_ptr"
 
-	memcpy static_data locals_ptr 4
-	#:breakpoint "after memcpy"
-	#push_local 0
-	#push_local 1
-	#addw
+	memcpy_dir_to_ptr static_data locals_ptr 4
+	push_local 0
+	push_local 1
+	addw
 	pop_into_reg vC
 	assert_equal_16 vC 5
 
@@ -622,7 +635,7 @@ test "push local"
 :monitor 0x9000 "%2i %2i %2i %2i %2i %2i %2i "
 :monitor vC "%2i"
 test "pop local"
-:breakpoint "hi"
+#:breakpoint "hi"
 
 	# somewhere out of the way
 	i := locals_ptr
