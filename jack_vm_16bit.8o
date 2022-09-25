@@ -7,8 +7,8 @@
 	0xF0 0x00 : LABEL 0x00 0x00 # i := long NNNN
 	}
 
-
-#:alias ZERO v0
+:const TRUE 0x0001
+:const FALSE 0x0000
 
 #:alias LOCALS v8 # pointer into stack
 #:alias ARGS v9 # pointer into stack
@@ -23,11 +23,6 @@
 
 :alias PChi v8
 :alias PClo v9
-
-# 2 bit | 3 bit | 3 bit
-
-
-
 
 :macro op CODE {
   # 5 bit opcode
@@ -54,16 +49,7 @@
 :macro o_not { op 0x10 }
 :macro o_halt { op 0x17 0x00 }
 
-:org 0x3000
-: vm_program
-noop
-o_push_constant 1
-o_push_constant 2
-o_add
-
-
 # statics and stack are fixed in RAM
-
 :org 0x1900
 : statics
 
@@ -413,22 +399,25 @@ test "basic subtraction"
 		o_sub
 	vm_stop
 #	:breakpoint stopxx
-
 	pop_into_reg vC
 	assert_equal_16 vC 100
 
 	# carry
-	push_wconstant 0x100
-	push_wconstant 1
-	subw
+	vm_start
+		o_push_constant 0x100
+		o_push_constant 1
+		o_sub
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0xFF
 #	:breakpoint after_carry
 
 	# rollover to 0xffff
-	push_wconstant 0x00
-	push_wconstant 1
-	subw
+	vm_start
+		o_push_constant 0x00
+		o_push_constant 1
+		o_sub
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0xFFFF
 #	:breakpoint after_rollover
@@ -437,42 +426,48 @@ test "basic subtraction"
 ;
 
 test "AND two words"
-	push_wconstant 0x100
-	push_wconstant 10
-	addw
-	push_wconstant 0xFF
-	andw
+	vm_start
+		o_push_constant 0x100
+		o_push_constant 10
+		o_add
+		o_push_constant 0xFF
+		o_and
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 10
 	success
 ;
 
 test "AND two words"
-	push_wconstant 0xFFFF
-	push_wconstant 0x1234
-	andw
+	vm_start
+		o_push_constant 0xFFFF
+		o_push_constant 0x1234
+		o_and
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0x1234
 	success
 ;
 
 test "basic OR"
-	push_wconstant 0b0101010101010101
-	push_wconstant 0b1010101010101010
-	orw
+	vm_start
+		o_push_constant 0b0101010101010101
+		o_push_constant 0b1010101010101010
+		o_or
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0xFFFF
 
-	push_wconstant 0xFF10
-	push_wconstant 0x002F
-	orw
+	vm_start
+		o_push_constant 0xFF10
+		o_push_constant 0x002F
+		o_or
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0xFF3F
 	success
 ;
 
-:const TRUE 0x0001
-:const FALSE 0x0000
 
 test "negate"
 	push_wconstant 1
@@ -1102,6 +1097,16 @@ return
 
 : op_add
 	addw
+op_return
+return
+
+: op_and
+	andw
+op_return
+return
+
+: op_or
+	orw
 op_return
 return
 
