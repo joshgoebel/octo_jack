@@ -29,7 +29,6 @@
 
 
 
-:macro noop { 0x00 }
 :macro op CODE {
   # 5 bit opcode
 	:byte { CODE << 2 }
@@ -41,7 +40,18 @@
 	:byte { hi }
 	:byte { lo }
 }
+
+:macro noop { 0x00 }
 :macro o_add { op 0x01 }
+:macro o_sub { op 0x02 }
+:macro o_neg { op 0x03 }
+:macro o_equal { op 0x04 }
+:macro o_gt { op 0x05 }
+:macro o_lt { op 0x06 }
+:macro o_and { op 0x07 }
+:macro o_or { op 0x08 }
+:macro o_xor { op 0x09 }
+:macro o_not { op 0x10 }
 :macro o_halt { op 0x17 0x00 }
 
 :org 0x3000
@@ -193,8 +203,10 @@ vF := 1
 #:call 0xfff
 jump start
 
-: data 0x00 0x80
-: failed 0x80 0x80
+: test_green 0x00 0x80
+: test_red 0x80 0x80
+: test_state 0x00
+
 
 :const MAX_TESTS 30
 :calc next_test { HERE }
@@ -209,6 +221,8 @@ return
 
 : start
 	v0 := 0
+	i := test_state
+	save v0 - v0
 
 	plane 3
 	SP := 0
@@ -228,7 +242,7 @@ return
 	#test_a_equal_b
 	#:breakpoint x
 
-	:breakpoint before_run_tests
+	#:breakpoint before_run_tests
 	:call run_tests
 	#:breakpoint after_run_tests
 
@@ -236,16 +250,22 @@ return
 	  vF += 1
 	again
 
+: advance_test
+	i := test_state
+	load v0 - v0
+	v0 += 1
+	save v0 - v0
+;
 
 : test-fail
-	v0 += 1
-	i := failed
+	advance_test
+	i := test_red
 	sprite v0 v0 1
 ;
 
 : success
-	v0 += 1
-	i := data
+	advance_test
+	i := test_green
 	sprite v0 v0 1
 ;
 
@@ -284,12 +304,14 @@ return
 
 :macro vm_start {
 	:calc vm_source { HERE }
-	:calc next { HERE + 2 }
-	:org next
+	:calc next_inst { HERE + 2 }
+	:org next_inst
 }
 
 :macro inc_pc n {
-	PClo += n
+	# need a register to get overflow flag in vF
+	vF := n
+	PClo += vF
 	PChi += vF # overflow
 }
 : load_pc
@@ -321,10 +343,11 @@ return
 	:calc vm_source { vm_source + 2 }
 	:org was
 	# load vm_source into our PC
-	:calc hi { vm_source >> 8 }
+	:calc hi { ( vm_source >> 8 ) & 0xFF }
 	:calc lo { vm_source & 0xFF }
 	PChi := hi
 	PClo := lo
+	#:breakpoint running_vm
 	run_vm
 }
 
@@ -334,6 +357,7 @@ test "simple add"
 		o_push_constant 2
 		o_add
 	vm_stop
+
 
 #	push_wconstant 1
 #	push_wconstant 2
@@ -380,9 +404,16 @@ test "add two words"
 # sub
 
 test "basic subtraction"
-	push_wconstant 123
-	push_wconstant 23
-	subw
+#  push_wconstant 123
+#  push_wconstant 23
+#  subw
+	vm_start
+		o_push_constant 123
+		o_push_constant 23
+		o_sub
+	vm_stop
+#	:breakpoint stopxx
+
 	pop_into_reg vC
 	assert_equal_16 vC 100
 
@@ -392,6 +423,7 @@ test "basic subtraction"
 	subw
 	pop_into_reg vC
 	assert_equal_16 vC 0xFF
+#	:breakpoint after_carry
 
 	# rollover to 0xffff
 	push_wconstant 0x00
@@ -399,6 +431,7 @@ test "basic subtraction"
 	subw
 	pop_into_reg vC
 	assert_equal_16 vC 0xFFFF
+#	:breakpoint after_rollover
 
 	success
 ;
@@ -1067,6 +1100,17 @@ return
   clear
 return
 
+: op_add
+	addw
+op_return
+return
+
+: op_sub
+	subw
+op_return
+return
+
+
 # flow control
 
 : op_halt
@@ -1077,6 +1121,7 @@ return
 # TODO: perhaps instead a jump to vm_stop might be
 # more appropriate if later we decide we have cleanup
 # we need to do.
+#	inc_pc 1
 return
 
 : op_call
@@ -1153,8 +1198,8 @@ return
 # 1 byte instructions
 jump noop         # 0x00
 
-jump addw         # 0x01
-jump subw         # 0x02
+jump op_add         # 0x01
+jump op_sub         # 0x02
 jump negw         # 0x03
 jump equalw       # 0x04
 jump gtw          # 0x05
