@@ -36,17 +36,22 @@
 	:byte { lo }
 }
 
+:macro o_push_static INDEX { op 0x11 :byte { INDEX } }
+:macro o_pop_static INDEX { op 0x19 :byte { INDEX } }
+:macro o_push_local INDEX { op 0x12 :byte { INDEX } }
+:macro o_pop_local INDEX { op 0x1A :byte { INDEX } }
+
 :macro noop { 0x00 }
 :macro o_add { op 0x01 }
 :macro o_sub { op 0x02 }
-:macro o_neg { op 0x03 }
+:macro o_negate { op 0x03 }
 :macro o_equal { op 0x04 }
 :macro o_gt { op 0x05 }
 :macro o_lt { op 0x06 }
 :macro o_and { op 0x07 }
 :macro o_or { op 0x08 }
 :macro o_xor { op 0x09 }
-:macro o_not { op 0x10 }
+:macro o_not { op 0x0A }
 :macro o_halt { op 0x17 0x00 }
 
 # statics and stack are fixed in RAM
@@ -470,13 +475,17 @@ test "basic OR"
 
 
 test "negate"
-	push_wconstant 1
-	negw
+	vm_start
+		o_push_constant 1
+		o_negate
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0xFFFF
 
-	push_wconstant 2
-	negw
+	vm_start
+		o_push_constant 2
+		o_negate
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 0xFFFE
 
@@ -484,24 +493,32 @@ test "negate"
 ;
 
 test "not"
-	push_wconstant 0xFF
-	#:breakpoint beforenot
-	notw
+
+	vm_start
+		o_push_constant 0xFF
+		o_not
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
-	push_wconstant 1
-	notw
+	vm_start
+		o_push_constant 1
+		o_not
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
-	push_wconstant 0x0F00
-	notw
+	vm_start
+		o_push_constant 0x0F00
+		o_not
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
-	push_wconstant 0
-	notw
+	vm_start
+		o_push_constant 0
+		o_not
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC TRUE
 
@@ -509,42 +526,54 @@ test "not"
 ;
 
 test "equality"
-	push_wconstant 123
-	push_wconstant 123
-	equalw
+	vm_start
+		o_push_constant 123
+		o_push_constant 123
+		o_equal
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC TRUE
 
-	push_wconstant 123
-	push_wconstant 99
-	equalw
+	vm_start
+		o_push_constant 123
+		o_push_constant 99
+		o_equal
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
-	push_wconstant 56
-	push_wconstant 5000
-	equalw
+	vm_start
+		o_push_constant 56
+		o_push_constant 5000
+		o_equal
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 	success
 ;
 
 test "less than"
-	push_wconstant 2000
-	push_wconstant 2000
-	ltw
+	vm_start
+		o_push_constant 2000
+		o_push_constant 2000
+		o_lt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
-	push_wconstant 1999
-	push_wconstant 2000
-	ltw
+	vm_start
+		o_push_constant 1999
+		o_push_constant 2000
+		o_lt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC TRUE
 
-	push_wconstant 2002
-	push_wconstant 2000
-	ltw
+	vm_start
+		o_push_constant 2002
+		o_push_constant 2000
+		o_lt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
@@ -552,33 +581,43 @@ test "less than"
 ;
 
 test "greater than"
-	push_wconstant 2000
-	push_wconstant 123
-	gtw
+	vm_start
+		o_push_constant 2000
+		o_push_constant 123
+		o_gt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC TRUE
 
-	push_wconstant 0x0200
-	push_wconstant 0x0100
-	gtw
+	vm_start
+		o_push_constant 0x0200
+		o_push_constant 0x0100
+		o_gt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC TRUE
 
-	push_wconstant 0x0102
-	push_wconstant 0x0101
-	gtw
+	vm_start
+		o_push_constant 0x0102
+		o_push_constant 0x0101
+		o_gt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC TRUE
 
-	push_wconstant 2000
-	push_wconstant 2000
-	gtw
+	vm_start
+		o_push_constant 2000
+		o_push_constant 2000
+		o_gt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 
-	push_wconstant 56
-	push_wconstant 5000
-	gtw
+	vm_start
+		o_push_constant 56
+		o_push_constant 5000
+		o_gt
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC FALSE
 	success
@@ -604,9 +643,11 @@ test "greater than"
 
 test "push static"
 	memcpy static_data statics 4
-	push_static 0
-	push_static 1
-	addw
+	vm_start
+		o_push_static 0
+		o_push_static 1
+		o_add
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 5
 	success
@@ -615,10 +656,12 @@ test "push static"
 # pop static
 
 test "pop static"
-	push_wconstant 55
-	pop_static 0
-	push_wconstant 123
-	pop_static 3
+	vm_start
+		o_push_constant 55
+		o_pop_static 0
+		o_push_constant 123
+		o_pop_static 3
+	vm_stop
 
 	get_static 0
 	assert_equal_16 vC 55
@@ -651,9 +694,11 @@ test "push local"
 	save vC - vD
 
 	memcpy_dir_to_ptr static_data locals_ptr 4
-	push_local 0
-	push_local 1
-	addw
+	vm_start
+		o_push_local 0
+		o_push_local 1
+		o_add
+	vm_stop
 	pop_into_reg vC
 	assert_equal_16 vC 5
 
@@ -671,10 +716,12 @@ test "pop local"
 	vD := 0x00
 	save vC - vD
 
-	push_wconstant 99
-	pop_local 0
-	push_wconstant 3456
-	pop_local 3
+	vm_start
+		o_push_constant 99
+		o_pop_local 0
+		o_push_constant 3456
+		o_pop_local 3
+	vm_stop
 
 	get_local 0
 	#:breakpoint xx
@@ -1062,9 +1109,17 @@ op_return
 return
 
 : op_push_static
+	index := op2
+	_push_static
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_push_local
+	index := op2
+	_push_local
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_push_this
@@ -1077,22 +1132,86 @@ return
 return
 
 : op_pop_static
+	index := op2
+	_pop_static
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_pop_local
+	index := op2
+	_pop_local
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_pop_this
+	index := op2
+	stack_dec
+	access_stack
+	load vC - vD
+	access_this
+	index += index
+	i += index
+	save vC - vD
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_pop_that
+	index := op2
+	stack_dec
+	access_stack
+	load vC - vD
+	access_that
+	index += index
+	i += index
+	save vC - vD
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_pop_arg
+	index := op2
+	stack_dec
+	access_stack
+	load vC - vD
+	access_args
+	index += index
+	i += index
+	save vC - vD
+	inc_pc 1 # eat the index
+op_return
 return
 
 : op_clear
   clear
+op_return
+return
+
+: op_not
+	notw
+op_return
+return
+
+: op_equal
+	equalw
+op_return
+return
+
+: op_lt
+	ltw
+op_return
+return
+
+: op_gt
+	gtw
+op_return
+return
+
+: op_negate
+	negw
+op_return
 return
 
 : op_add
@@ -1110,11 +1229,20 @@ return
 op_return
 return
 
+: op_xor
+	xorw
+op_return
+return
+
 : op_sub
 	subw
 op_return
 return
 
+: op_neg
+	negw
+op_return
+return
 
 # flow control
 
@@ -1205,14 +1333,14 @@ jump noop         # 0x00
 
 jump op_add         # 0x01
 jump op_sub         # 0x02
-jump negw         # 0x03
-jump equalw       # 0x04
-jump gtw          # 0x05
-jump ltw          # 0x06
-jump andw         # 0x07
-jump orw          # 0x08
-jump xorw         # 0x09
-jump notw         # 0x0A
+jump op_neg         # 0x03
+jump op_equal       # 0x04
+jump op_gt          # 0x05
+jump op_lt          # 0x06
+jump op_and         # 0x07
+jump op_or          # 0x08
+jump op_xor         # 0x09
+jump op_not         # 0x0A
 
 jump noop         # 0x0B
 jump noop         # 0x0C
