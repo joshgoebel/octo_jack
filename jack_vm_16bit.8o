@@ -18,6 +18,7 @@
 :alias op1 v2
 :alias op2 v3
 :alias op3 v4
+:alias op4 v5 # rare
 
 :alias tmp v7
 
@@ -61,7 +62,7 @@
 :org 0x2000
 : stack
 
-:org 0x0B00
+:org 0x0F00
 :const ptr_count 6
 :const ptr_size 6
 : access_stack
@@ -320,6 +321,7 @@ return
 	jump0 op_jump_table
 	: op_done_resume_vm
 	inc_pc 1
+	: op_done_resume_vm_at_new_PC
 	jump run_vm
 return
 
@@ -1247,9 +1249,8 @@ return
 # flow control
 
 : op_halt
-# purposely all this does is return
-# and since we jumped here this will
-# terminate the VM
+# purposely all this does is return (a REAL return, not op_return)
+# and since we jumped here this will terminate the VM
 #
 # TODO: perhaps instead a jump to vm_stop might be
 # more appropriate if later we decide we have cleanup
@@ -1257,16 +1258,111 @@ return
 #	inc_pc 1
 return
 
-: op_call
+: op_call_method
+return
+
+:alias tmpHi op2
+:alias tmpLo op3
+: op_call_fn
+	# fetch ALL the opcode need the 4th byte)
+	load op1 - op4
+	# push PC (for return)
+	access_stack
+	save PChi - PClo
+	stack_inc
+	# save the new PC to free up those registers for use
+	PChi := op2
+	PClo := op3
+
+	# TODO: could do this with a single large LOAD/SAVE (of the whole frame) then a single
+	# increment of the stack point
+
+	# push this ptr
+	i := long this_ptr
+	load tmpHi - tmpLo
+	access_stack
+	save tmpHi - tmpLo
+	stack_inc
+
+	# push that ptr
+	i := long that_ptr
+	load tmpHi - tmpLo
+	access_stack
+	save tmpHi - tmpLo
+	stack_inc
+
+	# push args ptr
+	i := long args_ptr
+	load tmpHi - tmpLo
+	access_stack
+	save tmpHi - tmpLo
+	stack_inc
+
+	# push local ptr
+	i := long locals_ptr
+	load tmpHi - tmpLo
+	access_stack
+	save tmpHi - tmpLo
+	stack_inc
+
+	# new this ptr and new that ptr
+	tmpHi := 0
+	tmpLo := 0
+	i := long this_ptr
+	save tmpHi - tmpLo
+	i := long that_ptr
+	save tmpHi - tmpLo
+
+	# new args ptr (rewind stack (# args + 1[PC]) * 2)
+	# new locals ptr (here)
+	i := long stack_ptr
+	load tmpHi - tmpLo
+	i := long locals_ptr
+	save tmpHi - tmpLo
+
+	# GO JUMP
+	jump op_jump
 return
 
 : op_function
+	# op2: number of 16-bit locals
+	index := op2
+	v1 := 0
+	v2 := 0
+	# push zeroed locals onto the stack
+	loop while index != 0
+		access_stack
+		save v1 - v2
+		stack_inc
+		index -= 1
+	again
+	# TODO: set locals_ptr or does call do that?
+	inc_pc 1 # eat number of locals
+op_return
 return
 
 : op_jump
+	PChi := op2
+	PClo := op3
+	# we need to return without bumping SP after we return
+	jump op_done_resume_vm_at_new_PC
+	# op_return
 return
 
+# pop top value from stack, jump only if true
 : op_jump_if
+	stack_dec
+	access_stack
+	load vC - vD
+	vC |= vD
+	if vC == FALSE begin
+		# skip over the jump address
+		inc_pc 2
+		# no jump we are falsy, return without touching PC
+		op_return
+	end
+	# truthy value, lets do the jump opcode
+	jump op_jump
 return
 
 : op_return
@@ -1315,9 +1411,10 @@ return
 
 # 3 1 jump [addr][addr]      (3 bytes)
 # 3 2 jump-if [addr][addr]   (3 bytes)
-# 3 3 call [addr][addr] [args] (4 bytes)
-# 3 4 function [locals]      (2 bytes)
-# 3 5 return                 (1 byte)
+# 3 3 call_fn [addr][addr] [args] (4 bytes)
+# 3 4 call_method [addr][addr] [args] (4 bytes) (this is pushed on stack first)
+# 3 5 function [locals]      (2 bytes)
+# 3 6 return                 (1 byte)
 
 
 
@@ -1372,7 +1469,8 @@ jump op_function      # 0x1F
 jump op_push_constant # 0x20 - 3 bytes
 jump op_jump          # 0x21 - 3 bytes
 jump op_jump_if       # 0x22 - 3 bytes
-jump op_call          # 0x23 - 4 bytes
+jump op_call_fn       # 0x23 - 4 bytes
+jump op_call_method   # 0x24 - 4 bytes
 
 
 # 5 bits
