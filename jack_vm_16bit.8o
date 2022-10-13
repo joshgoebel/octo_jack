@@ -1274,9 +1274,6 @@ return
 	PChi := op2
 	PClo := op3
 
-	# TODO: could do this with a single large LOAD/SAVE (of the whole frame) then a single
-	# increment of the stack point
-
 	# push this ptr
 	i := long this_ptr
 	load tmpHi - tmpLo
@@ -1313,11 +1310,21 @@ return
 	i := long that_ptr
 	save tmpHi - tmpLo
 
-	# new args ptr (rewind stack (# args + 1[PC]) * 2)
-	# new locals ptr (here)
+	# new locals ptr (here, top of stack currently - before we push locals)
 	i := long stack_ptr
 	load tmpHi - tmpLo
 	i := long locals_ptr
+	save tmpHi - tmpLo
+
+	# new args ptr (rewind stack (# args + 1[PC]) * 2)
+	:const FRAME_SIZE 10 # 5 word ptrs: PC, this, that, args, locals
+	i := long stack_ptr
+	load tmpHi - tmpLo
+	op4 += op4 # words, not bytes
+	op4 += FRAME_SIZE
+	tmpLo -= op4
+	tmpHi -= vF
+	i := long args_ptr
 	save tmpHi - tmpLo
 
 	# GO JUMP
@@ -1365,7 +1372,7 @@ return
 	jump op_jump
 return
 
-: op_return
+: opcode_return
 return
 
 
@@ -1443,7 +1450,7 @@ jump noop         # 0x0B
 jump noop         # 0x0C
 jump noop         # 0x0D
 jump op_clear     # 0x0E
-jump op_return    # 0x0F
+jump opcode_return    # 0x0F
 
 # 2 byte instructions
 jump noop             # 0x10
