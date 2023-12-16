@@ -1,0 +1,34 @@
+: static_data
+0x00 0x03 0x00 0x02
+
+# push static
+
+test "push static"
+	memcpy static_data statics 4
+	vm_start
+		o_push_static 0
+		o_push_static 1
+		o_add
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 5
+	success
+;
+
+# pop static
+
+test "pop static"
+	vm_start
+		o_push_constant 55
+		o_pop_static 0
+		o_push_constant 123
+		o_pop_static 3
+	vm_stop
+
+	get_static 0
+	assert_equal_16 vC 55
+	get_static 3
+	assert_equal_16 vC 123
+
+	success
+;

@@ -1,0 +1,24 @@
+test "AND two words"
+	vm_start
+		o_push_constant 0x100
+		o_push_constant 10
+		o_add
+		o_push_constant 0xFF
+		o_and
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 10
+	success
+;
+
+test "AND two words"
+	vm_start
+		o_push_constant 0xFFFF
+		o_push_constant 0x1234
+		o_and
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0x1234
+	success
+;
+

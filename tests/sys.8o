@@ -1,0 +1,10 @@
+test "noops"
+	vm_start
+		noop
+		noop
+		noop
+        noop
+        noop
+	vm_stop
+	success
+;

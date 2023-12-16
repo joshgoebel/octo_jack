@@ -1,0 +1,18 @@
+test "basic OR"
+	vm_start
+		o_push_constant 0b0101010101010101
+		o_push_constant 0b1010101010101010
+		o_or
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFF
+
+	vm_start
+		o_push_constant 0xFF10
+		o_push_constant 0x002F
+		o_or
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0xFF3F
+	success
+;

@@ -1,0 +1,76 @@
+:org 0xFFE
+: op_jump_table
+
+# 1 byte instructions
+jump noop             # 0x00   [ ]
+
+jump op_add           # 0x01   [x]
+jump op_sub           # 0x02   [x]
+jump op_neg           # 0x03   [x]
+jump op_equal         # 0x04   [x]
+jump op_gt            # 0x05   [x]
+jump op_lt            # 0x06   [x]
+jump op_and           # 0x07   [x]
+jump op_or            # 0x08   [x]
+jump op_xor           # 0x09   [x]
+jump op_not           # 0x0A   [x]
+
+jump noop             # 0x0B   [ ]
+jump noop             # 0x0C   [ ]
+jump noop             # 0x0D   [ ]
+jump op_clear         # 0x0E   [x]
+jump opcode_return    # 0x0F   [ ]
+
+# 2 byte instructions
+jump noop             # 0x10   [ ]
+jump op_push_static   # 0x11   [x]
+jump op_push_local    # 0x12   [x]
+jump op_push_this     # 0x13   [ ]
+jump op_push_that     # 0x14   [ ]
+jump op_push_arg      # 0x15   [ ]
+
+jump noop             # 0x16   [ ]
+jump op_halt          # 0x17   [ ]
+jump noop             # 0x18   [ ]
+jump op_pop_static    # 0x19   [x]
+jump op_pop_local     # 0x1A   [x]
+jump op_pop_this      # 0x1B   [ ]
+jump op_pop_that      # 0x1C   [ ]
+jump op_pop_arg       # 0x1D   [ ]
+jump noop             # 0x1E   [ ]
+jump op_function      # 0x1F   [ ]
+
+# 0x20 - 3 bytes
+
+jump op_push_constant # 0x20 - 3 bytes   [x] - tested indirectly by math, etc.
+jump op_jump          # 0x21 - 3 bytes   [ ]
+jump op_jump_if       # 0x22 - 3 bytes   [ ]
+jump op_call_fn       # 0x23 - 4 bytes   [ ]
+jump op_call_method   # 0x24 - 4 bytes   [ ]
+
+
+# 5 bits
+# first values are 8, 16, 24
+# SHR, SHR, jump table
+
+
+# read 3 bytes
+# get first 2 bit (math, pop. push, flow) 0,  64, 128, 192  (JMP + v0)
+
+# math
+# get last 6 bits (AND)
+# shift left, jump table
+
+# pop
+# get 3 bit
+
+
+
+
+
+#:monitor 0x1200 64
+#:monitor 0x0200 64
+
+#:monitor 0xf00 80
+#:org 0xf00
+

@@ -1,0 +1,46 @@
+# push local
+test "push local"
+	i := locals_ptr
+	vC := 0x90
+	vD := 0x00
+	save vC - vD
+
+	memcpy_dir_to_ptr static_data locals_ptr 4
+	vm_start
+		o_push_local 0
+		o_push_local 1
+		o_add
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 5
+
+	success
+;
+
+:monitor 0x9000 "%2i %2i %2i %2i %2i %2i %2i "
+:monitor vC "%2i"
+test "pop local"
+#:breakpoint "hi"
+
+	# somewhere out of the way
+	i := locals_ptr
+	vC := 0x90
+	vD := 0x00
+	save vC - vD
+
+	vm_start
+		o_push_constant 99
+		o_pop_local 0
+		o_push_constant 3456
+		o_pop_local 3
+	vm_stop
+
+	get_local 0
+	#:breakpoint xx
+	assert_equal_16 vC 99
+	get_local 3
+	#:breakpoint xy
+	assert_equal_16 vC 3456
+
+	success
+;

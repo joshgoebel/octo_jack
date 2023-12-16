@@ -1,0 +1,42 @@
+test "greater than"
+	vm_start
+		o_push_constant 2000
+		o_push_constant 123
+		o_gt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	vm_start
+		o_push_constant 0x0200
+		o_push_constant 0x0100
+		o_gt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	vm_start
+		o_push_constant 0x0102
+		o_push_constant 0x0101
+		o_gt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	vm_start
+		o_push_constant 2000
+		o_push_constant 2000
+		o_gt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	vm_start
+		o_push_constant 56
+		o_push_constant 5000
+		o_gt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+	success
+;

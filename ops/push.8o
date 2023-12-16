@@ -1,0 +1,31 @@
+: op_push_constant
+	access_stack
+	save op2 - op3
+
+	stack_inc
+	inc_pc 2 # 2 extra
+op_return
+return
+
+: op_push_static
+	index := op2
+	_push_static
+	inc_pc 1 # eat the index
+op_return
+return
+
+: op_push_local
+	index := op2
+	_push_local
+	inc_pc 1 # eat the index
+op_return
+return
+
+: op_push_this
+return
+
+: op_push_that
+return
+
+: op_push_arg
+return

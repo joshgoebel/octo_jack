@@ -1,0 +1,34 @@
+# STACK ACCESS
+
+
+: stack_inc
+	# increment update stack ptr
+	i := long stack_ptr
+	load vC - vD
+	vF := 2
+	vD += vF
+	if vF == 1 then vC += 1
+	save vC - vD
+;
+
+: stack_dec
+	# rewind stack
+	i := long stack_ptr
+	load vC - vD
+	vF := 2
+	vD -= vF
+	if vF == 0 then vC -= 1
+	save vC - vD
+;
+
+# to speed up operations that pull two things off the
+# stack and then operator on them
+: stack_dec2
+	# rewind stack
+	i := long stack_ptr
+	load vC - vD
+	vF := 4
+	vD -= vF
+	if vF == 0 then vC -= 1
+	save vC - vD
+;

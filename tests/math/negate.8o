@@ -1,0 +1,18 @@
+test "negate"
+	vm_start
+		o_push_constant 1
+		o_negate
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFF
+
+	vm_start
+		o_push_constant 2
+		o_negate
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFE
+
+	success
+;
+

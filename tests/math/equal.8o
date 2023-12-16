@@ -1,0 +1,26 @@
+test "equality"
+	vm_start
+		o_push_constant 123
+		o_push_constant 123
+		o_equal
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	vm_start
+		o_push_constant 123
+		o_push_constant 99
+		o_equal
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	vm_start
+		o_push_constant 56
+		o_push_constant 5000
+		o_equal
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+	success
+;

@@ -1,0 +1,179 @@
+# MATH OPCODES
+
+# [x] add
+# [x] sub
+# [x] neg
+# [x] equal
+# [x] gt
+# [x] lt
+# [x] and (bool/logic)
+# [x] or (bool/logic)
+# [x] xor (logic)
+# [x] not (bool)
+
+: gtw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	# check equality
+	if v2 > v4 then jump yes_greater
+	if v2 == v4 begin
+		if v3 > v5 then jump yes_greater
+	end
+	# push back to stack
+	: no_greater
+		vC := 0
+		vD := 0
+		jump done_greater
+	: yes_greater
+		vC := 0
+		vD := 1
+	: done_greater
+		save vC - vD
+		stack_inc
+return
+
+: ltw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	# check equality
+	if v2 < v4 then jump yes_less
+	if v2 == v4 begin
+		if v3 < v5 then jump yes_less
+	end
+	# push back to stack
+	: no_less
+		vC := 0
+		vD := 0
+		jump done_less
+	: yes_less
+		vC := 0
+		vD := 1
+	: done_less
+		save vC - vD
+		stack_inc
+return
+
+
+: equalw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	# check equality
+	if v2 != v4 then jump no_equal
+	if v3 != v5 then jump no_equal
+	# push back to stack
+	: yes_equal
+		vC := 0
+		vD := 1
+		jump done_equal
+	: no_equal
+		vC := 0
+		vD := 0
+	: done_equal
+		save vC - vD
+		stack_inc
+return
+
+: xorw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	v2 ^= v4
+	v3 ^= v5
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+: orw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	v2 |= v4
+	v3 |= v5
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+: andw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	v2 &= v4
+	v3 &= v5
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+: notw
+	stack_dec
+	access_stack
+	load v2 - v3
+	if v2 == 0 begin
+		if v3 == 0 begin
+			jump not_was_false
+		end
+	end
+	: not_was_true
+		v2 := 0
+		v3 := 0
+		jump not_done
+	: not_was_false
+		v2 := 0
+		v3 := 1
+	: not_done
+	save v2 - v3
+	stack_inc
+return
+
+: negw
+	stack_dec
+	access_stack
+	load v2 - v3
+	vC := v2
+	vD := v3
+	# once
+	v3 -= v3
+	if vF == 0 then v2 -= 1
+	v2 -= v2
+	# again
+	v3 -= vD
+	if vF == 0 then v2 -= 1
+	v2 -= vC
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+
+: addw
+	stack_dec2
+	access_stack
+
+	load v2 - v5
+	v3 += v5
+	if vF == 1 then v2 += 1
+	v2 += v4
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return
+
+
+
+: subw
+	stack_dec2
+	access_stack
+	load v2 - v5
+	#:breakpoint subw
+	v3 -= v5
+	if vF == 0 then v2 -= 1
+	v2 -= v4
+	# push back to stack
+	save v2 - v3
+	stack_inc
+return

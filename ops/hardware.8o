@@ -1,0 +1,8 @@
+: noop
+op_return
+return
+
+: op_clear
+  clear
+op_return
+return

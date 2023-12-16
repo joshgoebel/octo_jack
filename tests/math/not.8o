@@ -1,0 +1,32 @@
+test "not"
+
+	vm_start
+		o_push_constant 0xFF
+		o_not
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	vm_start
+		o_push_constant 1
+		o_not
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	vm_start
+		o_push_constant 0x0F00
+		o_not
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	vm_start
+		o_push_constant 0
+		o_not
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	success
+;

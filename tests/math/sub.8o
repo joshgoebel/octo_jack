@@ -1,0 +1,35 @@
+test "basic subtraction"
+#  push_wconstant 123
+#  push_wconstant 23
+#  subw
+	vm_start
+		o_push_constant 123
+		o_push_constant 23
+		o_sub
+	vm_stop
+#	:breakpoint stopxx
+	pop_into_reg vC
+	assert_equal_16 vC 100
+
+	# carry
+	vm_start
+		o_push_constant 0x100
+		o_push_constant 1
+		o_sub
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0xFF
+#	:breakpoint after_carry
+
+	# rollover to 0xffff
+	vm_start
+		o_push_constant 0x00
+		o_push_constant 1
+		o_sub
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC 0xFFFF
+#	:breakpoint after_rollover
+
+	success
+;

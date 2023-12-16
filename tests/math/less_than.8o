@@ -1,0 +1,27 @@
+test "less than"
+	vm_start
+		o_push_constant 2000
+		o_push_constant 2000
+		o_lt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	vm_start
+		o_push_constant 1999
+		o_push_constant 2000
+		o_lt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC TRUE
+
+	vm_start
+		o_push_constant 2002
+		o_push_constant 2000
+		o_lt
+	vm_stop
+	pop_into_reg vC
+	assert_equal_16 vC FALSE
+
+	success
+;

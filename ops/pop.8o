@@ -1,0 +1,52 @@
+: op_pop_static
+	index := op2
+	_pop_static
+	inc_pc 1 # eat the index
+op_return
+return
+
+: op_pop_local
+	index := op2
+	_pop_local
+	inc_pc 1 # eat the index
+op_return
+return
+
+: op_pop_this
+	index := op2
+	stack_dec
+	access_stack
+	load vC - vD
+	access_this
+	index += index
+	i += index
+	save vC - vD
+	inc_pc 1 # eat the index
+op_return
+return
+
+: op_pop_that
+	index := op2
+	stack_dec
+	access_stack
+	load vC - vD
+	access_that
+	index += index
+	i += index
+	save vC - vD
+	inc_pc 1 # eat the index
+op_return
+return
+
+: op_pop_arg
+	index := op2
+	stack_dec
+	access_stack
+	load vC - vD
+	access_args
+	index += index
+	i += index
+	save vC - vD
+	inc_pc 1 # eat the index
+op_return
+return

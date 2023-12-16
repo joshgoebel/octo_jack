@@ -1,0 +1,24 @@
+test "jump"
+	vm_start
+        o_push_constant 1
+        o_jump add_nine
+		o_push_constant 2    # should be skipped
+        o_add                # should be skipped
+        : add_five
+        o_push_constant 5
+        o_add
+        o_jump jump_test_end
+        : add_nine
+        o_push_constant 9
+		o_add
+        o_jump add_five
+        o_push_constant 9   # should be skipped
+		o_add               # should be skipped
+        : jump_test_end
+	vm_stop
+
+    pop_into_reg vC
+	assert_equal vC 0
+	assert_equal vD 15
+	success
+;

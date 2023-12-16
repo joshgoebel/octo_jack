@@ -1,0 +1,49 @@
+test "simple add"
+	vm_start
+		o_push_constant 1
+		o_push_constant 2
+		o_add
+	vm_stop
+
+
+#	push_wconstant 1
+#	push_wconstant 2
+#	addw
+	pop_into_reg vC
+	assert_equal vC 0
+	assert_equal vD 3
+	success
+;
+
+test "add with carry"
+	vm_start
+		o_push_constant 255
+		o_push_constant 2
+		o_add
+	vm_stop
+
+#	push_wconstant 255
+#	push_wconstant 2
+#	addw
+	pop_into_reg vC
+	assert_equal vC 1
+	assert_equal vD 1
+	success
+;
+
+test "add two words"
+	vm_start
+		o_push_constant 257
+		o_push_constant 258
+		o_add
+	vm_stop
+
+	#push_wconstant 257
+	#push_wconstant 258
+	#addw
+	pop_into_reg vC
+	assert_equal vC 2
+	assert_equal vD 3
+	assert_equal_16 vC 515
+	success
+;

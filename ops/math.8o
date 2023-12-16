@@ -1,0 +1,54 @@
+: op_not
+	notw
+op_return
+return
+
+: op_equal
+	equalw
+op_return
+return
+
+: op_lt
+	ltw
+op_return
+return
+
+: op_gt
+	gtw
+op_return
+return
+
+: op_negate
+	negw
+op_return
+return
+
+: op_add
+	addw
+op_return
+return
+
+: op_and
+	andw
+op_return
+return
+
+: op_or
+	orw
+op_return
+return
+
+: op_xor
+	xorw
+op_return
+return
+
+: op_sub
+	subw
+op_return
+return
+
+: op_neg
+	negw
+op_return
+return
